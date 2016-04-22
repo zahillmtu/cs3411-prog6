@@ -23,6 +23,15 @@
 #include<sys/mman.h>
 #include<openssl/md5.h>
 
+void printHash(unsigned char hash[MD5_DIGEST_LENGTH]) {
+
+    for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
+        printf("%02x", hash[j]);
+    }
+    printf("\n");
+
+}
+
 int countDirs(char * path[]) {
 
     int count = 0;
@@ -53,7 +62,7 @@ int countDirs(char * path[]) {
     return count;
 }
 
-void getMD5(char * path[], unsigned char hashes[][MD5_DIGEST_LENGTH]) {
+void getMD5(char * path[], unsigned char hashes[][MD5_DIGEST_LENGTH], char files[][256]) {
 
     // start the traversal
     FTS * ftsp = fts_open(path, FTS_PHYSICAL, NULL);
@@ -92,6 +101,9 @@ void getMD5(char * path[], unsigned char hashes[][MD5_DIGEST_LENGTH]) {
                 exit(EXIT_FAILURE);
             }
 
+            // save the filename
+            memcpy(files[i], ent->fts_path, strlen(ent->fts_path));
+
             char * buf = mmap(0, stb.st_size, PROT_READ, MAP_SHARED, fd, 0);
             MD5((unsigned char*) buf, stb.st_size, hashes[i]);
             munmap(buf, stb.st_size);
@@ -108,6 +120,21 @@ void getMD5(char * path[], unsigned char hashes[][MD5_DIGEST_LENGTH]) {
         }
     }
 
+
+}
+
+void printDup(unsigned char hashes[][MD5_DIGEST_LENGTH], int fileCount, char files[][256]) {
+
+    (void*)files;
+
+    printf("Printing Duplicates: \n");
+
+    for (int i = 0; i < fileCount - 1; i++) {
+        if (memcmp(hashes[i], hashes[i + 1], MD5_DIGEST_LENGTH) == 0) {
+            printf("Found dup\n");
+            printHash(hashes[i]);
+        }
+    }
 
 }
 
@@ -139,8 +166,11 @@ int main(int argc, char* argv[]) {
     unsigned char hashes[fileCount][MD5_DIGEST_LENGTH];
     memset(hashes, 0, sizeof hashes);
 
+    // Create an array to save the names
+    char files[fileCount][256];
+
     // get the hashes
-    getMD5(path, hashes);
+    getMD5(path, hashes, files);
 
     // Sort the hashes
     qsort(hashes, fileCount, MD5_DIGEST_LENGTH, compare);
@@ -153,6 +183,9 @@ int main(int argc, char* argv[]) {
         }
         printf("\n");
     }
+
+    // print duplicates
+    printDup(hashes, fileCount, files);
 
     printf("The directory: %s\n", argv[1]);
 
