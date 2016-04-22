@@ -1,5 +1,5 @@
 CC = gcc
-CCFLAGS = -std=c99 -g -Wall -Wextra -lreadline
+CCFLAGS = -std=c99 -g -Wall -Wextra -lreadline -lssl -lcrypto
 EXEC = finddup
 OBJS = finddup.o
 
