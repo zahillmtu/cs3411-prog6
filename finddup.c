@@ -12,6 +12,7 @@
 #include<stdlib.h>
 #include<stdio.h>
 #include<stdint.h>
+#include<stddef.h>
 #include<string.h>
 #include<fcntl.h>
 #include<unistd.h>
@@ -22,6 +23,11 @@
 #include<sys/stat.h>
 #include<sys/mman.h>
 #include<openssl/md5.h>
+
+struct hashInfo {
+    unsigned char hash[MD5_DIGEST_LENGTH];
+    char filename[256];
+};
 
 void printHash(unsigned char hash[MD5_DIGEST_LENGTH]) {
 
@@ -55,14 +61,15 @@ int countDirs(char * path[]) {
 
         if (ent->fts_info & FTS_F) {
            count = count + 1;
-           printf("%s\n", ent->fts_path);
         }
     }
+
+    fts_close(ftsp);
 
     return count;
 }
 
-void getMD5(char * path[], unsigned char hashes[][MD5_DIGEST_LENGTH], char files[][256]) {
+void getMD5(char * path[], struct hashInfo hashes[]) {
 
     // start the traversal
     FTS * ftsp = fts_open(path, FTS_PHYSICAL, NULL);
@@ -86,7 +93,7 @@ void getMD5(char * path[], unsigned char hashes[][MD5_DIGEST_LENGTH], char files
 
         if (ent->fts_info & FTS_F) {
 
-            printf("The file: %s\n", ent->fts_path);
+            //printf("The file: %s\n", ent->fts_path);
 
             int fd = open(ent->fts_accpath, O_RDONLY);
             if (fd < 0) {
@@ -101,18 +108,16 @@ void getMD5(char * path[], unsigned char hashes[][MD5_DIGEST_LENGTH], char files
                 exit(EXIT_FAILURE);
             }
 
-            // save the filename
-            memcpy(files[i], ent->fts_path, strlen(ent->fts_path));
+            // set the values to be empty
+            //memset(hashes[i]->hash, 0, MD5_DIGEST_LENGTH);
+            //hashes[i]->filename = NULL;
+
+            // save the name of the file
+            memcpy(hashes[i].filename, ent->fts_path, strlen(ent->fts_path));
 
             char * buf = mmap(0, stb.st_size, PROT_READ, MAP_SHARED, fd, 0);
-            MD5((unsigned char*) buf, stb.st_size, hashes[i]);
+            MD5((unsigned char*) buf, stb.st_size, hashes[i].hash);
             munmap(buf, stb.st_size);
-
-            // print the hash
-            for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
-                printf("%02x", hashes[i][j]);
-            }
-            printf("\n");
 
             i = i + 1;
 
@@ -120,19 +125,24 @@ void getMD5(char * path[], unsigned char hashes[][MD5_DIGEST_LENGTH], char files
         }
     }
 
-
+    fts_close(ftsp);
 }
 
-void printDup(unsigned char hashes[][MD5_DIGEST_LENGTH], int fileCount, char files[][256]) {
-
-    (void*)files;
-
-    printf("Printing Duplicates: \n");
+void printDup(struct hashInfo hashes[], int fileCount) {
 
     for (int i = 0; i < fileCount - 1; i++) {
-        if (memcmp(hashes[i], hashes[i + 1], MD5_DIGEST_LENGTH) == 0) {
-            printf("Found dup\n");
-            printHash(hashes[i]);
+        if (memcmp(hashes[i].hash, hashes[i + 1].hash, MD5_DIGEST_LENGTH) == 0) {
+            printf("%s %s", hashes[i].filename, hashes[i + 1].filename);
+
+            // check for a third
+            if (i < fileCount - 2) {
+                if (memcmp(hashes[i + 1].hash, hashes[i + 2].hash, MD5_DIGEST_LENGTH) == 0) {
+                    printf(" %s", hashes[i + 2].filename);
+                }
+                i = i + 2;
+            }
+            printf("\n");
+
         }
     }
 
@@ -140,10 +150,10 @@ void printDup(unsigned char hashes[][MD5_DIGEST_LENGTH], int fileCount, char fil
 
 static int compare(const void *A, const void *B) {
 
-    char * a = ((char*)A);
-    char * b = ((char*)B);
+    struct hashInfo* a = ((struct hashInfo*)A);
+    struct hashInfo* b = ((struct hashInfo*)B);
 
-    return strcmp(a, b);
+    return strcmp((const char*) a->hash, (const char*) b->hash);
 }
 
 int main(int argc, char* argv[]) {
@@ -155,39 +165,31 @@ int main(int argc, char* argv[]) {
 
     char * path[] = { argv[1], NULL };
 
-    // traverse the tree to count the number of files
-    printf("path[0]: %s\n", path[0]);
 
+    // traverse the tree to count the number of files
     // print the file count
     int fileCount = countDirs(path);
-    printf("Number of files: %d\n", fileCount);
 
     // Create an array of the file hashes
-    unsigned char hashes[fileCount][MD5_DIGEST_LENGTH];
+    struct hashInfo hashes[fileCount];
     memset(hashes, 0, sizeof hashes);
 
-    // Create an array to save the names
-    char files[fileCount][256];
-
     // get the hashes
-    getMD5(path, hashes, files);
+    getMD5(path, hashes);
 
     // Sort the hashes
-    qsort(hashes, fileCount, MD5_DIGEST_LENGTH, compare);
+    qsort(hashes, fileCount, sizeof(struct hashInfo), compare);
 
     // print to check in order
-    printf("Order after quicksort\n");
-    for (int i = 0; i < fileCount; i++) {
+    /*for (int i = 0; i < fileCount; i++) {
         for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
-            printf("%02x", hashes[i][j]);
+            printf("%02x", hashes[i].hash[j]);
         }
         printf("\n");
-    }
+    }*/
 
     // print duplicates
-    printDup(hashes, fileCount, files);
-
-    printf("The directory: %s\n", argv[1]);
+    printDup(hashes, fileCount);
 
     exit(EXIT_SUCCESS);
 }
