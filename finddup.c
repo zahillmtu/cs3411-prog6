@@ -24,11 +24,18 @@
 #include<sys/mman.h>
 #include<openssl/md5.h>
 
+/**
+ * Struct to store the informaiton needed to find
+ * the duplicates
+ */
 struct hashInfo {
     unsigned char hash[MD5_DIGEST_LENGTH];
     char filename[256];
 };
 
+/**
+ * Method to print the hash for debugging purposes
+ */
 void printHash(unsigned char hash[MD5_DIGEST_LENGTH]) {
 
     for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
@@ -38,6 +45,10 @@ void printHash(unsigned char hash[MD5_DIGEST_LENGTH]) {
 
 }
 
+/**
+ *  Method to count the files in the directories for
+ *  initialization purposes
+ */
 int countDirs(char * path[]) {
 
     int count = 0;
@@ -69,6 +80,10 @@ int countDirs(char * path[]) {
     return count;
 }
 
+/**
+ * Method traverses the directories and collects the
+ * hashes and filenames
+ */
 void getMD5(char * path[], struct hashInfo hashes[]) {
 
     // start the traversal
@@ -128,6 +143,9 @@ void getMD5(char * path[], struct hashInfo hashes[]) {
     fts_close(ftsp);
 }
 
+/**
+ * Function to print the duplicate files
+ */
 void printDup(struct hashInfo hashes[], int fileCount) {
 
     for (int i = 0; i < fileCount - 1; i++) {
@@ -148,6 +166,9 @@ void printDup(struct hashInfo hashes[], int fileCount) {
 
 }
 
+/**
+ * Compare function for qsort()
+ */
 static int compare(const void *A, const void *B) {
 
     struct hashInfo* a = ((struct hashInfo*)A);
@@ -156,6 +177,10 @@ static int compare(const void *A, const void *B) {
     return strcmp((const char*) a->hash, (const char*) b->hash);
 }
 
+/**
+ * Program takes a single argument, a directory and prints all the
+ * duplicate files in the directory tree rooted at the argument
+ */
 int main(int argc, char* argv[]) {
 
     // error checking
