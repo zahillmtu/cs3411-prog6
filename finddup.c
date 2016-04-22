@@ -15,6 +15,7 @@
 #include<string.h>
 #include<fcntl.h>
 #include<unistd.h>
+#include<dirent.h>
 #include<fts.h>
 #include<sys/errno.h>
 #include<sys/types.h>
@@ -110,6 +111,14 @@ void getMD5(char * path[], unsigned char hashes[][MD5_DIGEST_LENGTH]) {
 
 }
 
+static int compare(const void *A, const void *B) {
+
+    char * a = ((char*)A);
+    char * b = ((char*)B);
+
+    return strcmp(a, b);
+}
+
 int main(int argc, char* argv[]) {
 
     // error checking
@@ -130,9 +139,20 @@ int main(int argc, char* argv[]) {
     unsigned char hashes[fileCount][MD5_DIGEST_LENGTH];
     memset(hashes, 0, sizeof hashes);
 
-
     // get the hashes
     getMD5(path, hashes);
+
+    // Sort the hashes
+    qsort(hashes, fileCount, MD5_DIGEST_LENGTH, compare);
+
+    // print to check in order
+    printf("Order after quicksort\n");
+    for (int i = 0; i < fileCount; i++) {
+        for (int j = 0; j < MD5_DIGEST_LENGTH; j++) {
+            printf("%02x", hashes[i][j]);
+        }
+        printf("\n");
+    }
 
     printf("The directory: %s\n", argv[1]);
 
